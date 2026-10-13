@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0b0f1f">
+<title>플레이존 — 미니게임 천국</title>
+<style>
+:root{
+  --bg:#0b0f1f; --panel:#141a2e; --panel2:#1b2340; --ink:#eaf0ff; --muted:#8a96bd;
+  --line:#28304f; --cyan:#22e0d6; --pink:#ff3d8b; --yellow:#ffd23e; --green:#3ddc84; --purple:#9b6bff; --red:#ff4d5e;
+  --r:16px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--bg);
+  color:var(--ink);font:15px/1.5 "Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;overflow-x:hidden}
+body{background:radial-gradient(1000px 500px at 50% -10%,#18224a,#0b0f1f 62%)}
+button{font:inherit;color:inherit;cursor:pointer}
+.wrap{max-width:860px;margin:0 auto;padding:16px}
+.hidden{display:none!important}
+
+/* 상단 */
+.top{display:flex;align-items:center;gap:10px;padding:10px 4px 18px}
+.logo{font-weight:900;font-size:22px;letter-spacing:-.5px;display:flex;align-items:center;gap:8px}
+.logo .dot{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--cyan),var(--purple));display:grid;place-items:center;font-size:17px;box-shadow:0 0 18px rgba(34,224,214,.5)}
+.spacer{flex:1}
+.chip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:13px;display:flex;align-items:center;gap:7px}
+.chip b{color:var(--cyan)}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:10px;padding:7px 12px;font-size:13px;color:var(--muted)}
+.ghost:hover{color:var(--ink);border-color:var(--cyan)}
+
+/* 로그인 */
+.auth{min-height:100svh;display:grid;place-items:center;padding:24px}
+.auth-card{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:30px 24px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.auth-card .big{font-size:40px;font-weight:900;margin:6px 0 2px;letter-spacing:-1px}
+.auth-card .sub{color:var(--muted);margin-bottom:22px}
+.auth-card input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:14px 16px;font-size:17px;text-align:center;outline:none}
+.auth-card input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,224,214,.15)}
+.btn{display:block;width:100%;margin-top:12px;background:linear-gradient(135deg,var(--cyan),var(--purple));color:#06111a;border:0;border-radius:12px;padding:14px;font-size:17px;font-weight:800}
+.btn:active{transform:translateY(1px)}
+.btn.sm{display:inline-block;width:auto;padding:10px 18px;font-size:14px;margin:0}
+.auth-note{color:var(--muted);font-size:12px;margin-top:16px}
+
+/* 게임 그리드 */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;text-align:left;transition:.15s;position:relative;overflow:hidden}
+.card:hover{transform:translateY(-3px);border-color:var(--cyan);box-shadow:0 12px 30px rgba(0,0,0,.4)}
+.card .emoji{font-size:34px;line-height:1}
+.card h3{margin:10px 0 3px;font-size:16px}
+.card p{margin:0;color:var(--muted);font-size:12px;min-height:32px}
+.card .best{margin-top:8px;font-size:12px;color:var(--yellow);font-weight:700;min-height:16px}
+.card::after{content:"";position:absolute;inset:0;background:radial-gradient(120px 60px at 100% 0,var(--glow,transparent),transparent 70%);opacity:.35;pointer-events:none}
+
+.sec-title{display:flex;align-items:center;gap:8px;margin:26px 2px 12px;font-size:14px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.sec-title::after{content:"";flex:1;height:1px;background:var(--line)}
+
+/* 게임 화면 */
+.screen{position:fixed;inset:0;background:var(--bg);z-index:40;display:flex;flex-direction:column}
+.sc-top{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.sc-top h2{margin:0;font-size:17px}
+.sc-body{flex:1;overflow:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;text-align:center;gap:14px}
+.stage{width:100%;max-width:440px;margin:0 auto}
+.big-num{font-size:52px;font-weight:900;font-variant-numeric:tabular-nums}
+.hint{color:var(--muted);font-size:14px}
+canvas{background:#070b16;border-radius:14px;border:1px solid var(--line);touch-action:none;max-width:100%}
+
+/* 공통 게임 요소 */
+.statbar{display:flex;gap:18px;justify-content:center;font-size:14px;color:var(--muted)}
+.statbar b{color:var(--ink);font-size:20px;font-variant-numeric:tabular-nums}
+.tap-area{width:100%;max-width:440px;height:260px;border-radius:18px;display:grid;place-items:center;font-size:24px;font-weight:800;user-select:none;border:1px solid var(--line)}
+
+/* 결과 */
+.result{position:fixed;inset:0;z-index:50;background:rgba(5,8,18,.82);backdrop-filter:blur(6px);display:grid;place-items:center;padding:20px}
+.result-card{width:100%;max-width:420px;background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:24px;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.result-card .score{font-size:46px;font-weight:900;color:var(--cyan);margin:4px 0}
+.result-card .label{color:var(--muted)}
+.lb{margin-top:18px;text-align:left}
+.lb-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;font-size:14px}
+.lb-row.me{background:rgba(34,224,214,.12);border:1px solid rgba(34,224,214,.3)}
+.lb-rank{width:26px;text-align:center;font-weight:800;color:var(--muted)}
+.lb-row:nth-child(1) .lb-rank{color:var(--yellow)}
+.lb-name{flex:1;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb-score{font-weight:800;font-variant-numeric:tabular-nums}
+.lb-empty{color:var(--muted);text-align:center;padding:16px;font-size:13px}
+.row-btns{display:flex;gap:10px;margin-top:18px}
+.row-btns .btn{margin:0}
+.srv-tag{font-size:11px;color:var(--muted);margin-top:14px}
+.srv-tag .on{color:var(--green)}
+.srv-tag .off{color:var(--yellow)}
+@keyframes pop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+.result-card{animation:pop .22s ease}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:10px 16px;border-radius:12px;z-index:60;font-size:14px;opacity:0;transition:.3s}
+.toast.show{opacity:1}
+/* 보상 */
+.reward-strip{margin:4px 2px 0}
+.rs-lv{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 16px}
+.rs-head{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--muted)}
+.rs-head b{color:var(--ink);font-size:15px}
+.rs-bar{height:9px;background:#0d1430;border-radius:999px;overflow:hidden;margin:9px 0 4px}
+.rs-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--purple));border-radius:999px;transition:width .5s}
+.rs-sub{font-size:11px;color:var(--muted)}
+#profileBtn{border:1px solid var(--line)}
+.reward-pop{margin-top:12px;background:rgba(255,210,62,.1);border:1px solid rgba(255,210,62,.3);color:var(--yellow);border-radius:10px;padding:9px;font-weight:700;font-size:14px}
+.badge-win{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.badge-win span{background:var(--purple);color:#fff;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:700;animation:pop .3s}
+.badge-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.bdg{background:#0f1630;border:1px solid var(--line);border-radius:12px;padding:10px 4px;opacity:.4;filter:grayscale(1)}
+.bdg.on{opacity:1;filter:none;border-color:var(--yellow)}
+.bdg .be{font-size:26px}
+.bdg .bn{font-size:10px;color:var(--muted);margin-top:3px}
+.bdg.on .bn{color:var(--ink)}
+</style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<section id="auth" class="auth">
+  <div class="auth-card">
+    <div class="logo" style="justify-content:center"><span class="dot">🎮</span></div>
+    <div class="big">플레이존</div>
+    <div class="sub">이름 넣고 바로 시작 · 친구들과 순위 대결</div>
+    <input id="nameInput" maxlength="12" placeholder="닉네임을 입력하세요" autocomplete="off">
+    <button class="btn" id="startBtn">입장하기</button>
+    <div class="auth-note">비밀번호 없어요. 순위표에 뜰 이름이에요.</div>
+  </div>
+</section>
+
+<!-- 메인 -->
+<main id="home" class="wrap hidden">
+  <div class="top">
+    <div class="logo"><span class="dot">🎮</span> 플레이존</div>
+    <div class="spacer"></div>
+    <button class="chip" id="profileBtn" style="cursor:pointer">🪙 <b id="coins">0</b> · Lv.<b id="lvl">1</b></button>
+    <span class="chip">👤 <b id="whoami"></b></span>
+    <button class="ghost" id="logoutBtn">나가기</button>
+  </div>
+  <div class="reward-strip" id="rewardStrip"></div>
+  <div class="sec-title">미니게임 10종</div>
+  <div class="grid" id="gameGrid"></div>
+  <p class="srv-tag" id="srvTag"></p>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+'use strict';
+/* =======================================================================
+   플레이존 — 미니게임 10종 · 이름 로그인 · 서버(Supabase) 순위표
+   서버 설정: 아래 두 줄에 Supabase 주소/anon 키를 넣으면 순위가 서버에 저장돼요.
+   비워 두면 이 브라우저(localStorage)에만 저장돼요. SQL은 games_setup.sql 참고.
+   ======================================================================= */
+const SUPABASE_URL = '';        // 예: https://xxxx.supabase.co
+const SUPABASE_ANON_KEY = '';   // 예: eyJ...
+
+/* ---------- 서버 계층 (Supabase + 로컬 대체) ---------- */
+const Server = {
+  sb: null, online: false,
+  async init(){
+    if(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase){
+      try{ this.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); this.online = true; }
+      catch(e){ this.online = false; }
+    }
+  },
+  async submit(game, name, score){
+    if(this.online){
+      try{ await this.sb.from('gz_scores').insert({ game, name, score }); return; }
+      catch(e){ /* 폴백 */ }
+    }
+    const K='gz_local', all=JSON.parse(localStorage.getItem(K)||'[]');
+    all.push({game,name,score,created:Date.now()});
+    localStorage.setItem(K, JSON.stringify(all.slice(-2000)));
+  },
+  async top(game, higherBetter, limit=10){
+    if(this.online){
+      try{
+        const q = await this.sb.from('gz_scores').select('name,score')
+          .eq('game', game).order('score', { ascending: !higherBetter }).limit(200);
+        if(!q.error) return this._best(q.data, higherBetter).slice(0, limit);
+      }catch(e){ /* 폴백 */ }
+    }
+    const all=JSON.parse(localStorage.getItem('gz_local')||'[]').filter(r=>r.game===game);
+    return this._best(all, higherBetter).slice(0, limit);
+  },
+  // 사람마다 최고 기록 1개만
+  _best(rows, higherBetter){
+    const m=new Map();
+    for(const r of rows){
+      const cur=m.get(r.name);
+      if(cur===undefined || (higherBetter ? r.score>cur : r.score<cur)) m.set(r.name, r.score);
+    }
+    return [...m.entries()].map(([name,score])=>({name,score}))
+      .sort((a,b)=> higherBetter ? b.score-a.score : a.score-b.score);
+  },
+  // 내 로컬 최고 (카드에 표시)
+  myBest(game, higherBetter){
+    const me=App.name; if(!me) return null;
+    const key='gz_mybest', obj=JSON.parse(localStorage.getItem(key)||'{}');
+    return obj[game] ?? null;
+  },
+  saveMyBest(game, score, higherBetter){
+    const key='gz_mybest', obj=JSON.parse(localStorage.getItem(key)||'{}');
+    const cur=obj[game];
+    if(cur===undefined || (higherBetter ? score>cur : score<cur)){ obj[game]=score; localStorage.setItem(key, JSON.stringify(obj)); return true; }
+    return false;
+  }
+};
+
+/* ---------- 보상: 코인 · XP · 레벨 · 뱃지 ---------- */
+const BADGES = [
+  {id:'first', emoji:'🎯', name:'첫 승부', desc:'아무 게임이나 한 판 완료'},
+  {id:'all10', emoji:'🎮', name:'올라운더', desc:'10가지 게임 모두 플레이'},
+  {id:'top1',  emoji:'🏆', name:'정상 정복', desc:'어떤 게임이든 순위 1위'},
+  {id:'rich',  emoji:'💰', name:'코인 부자', desc:'코인 500개 모으기'},
+  {id:'streak',emoji:'🔥', name:'3일 연속', desc:'3일 연속 접속'},
+  {id:'bolt',  emoji:'⚡', name:'번개손', desc:'반응속도 250ms 이하'},
+  {id:'clicker',emoji:'💥',name:'광클러', desc:'클릭 러시 70회 이상'},
+  {id:'snakeK',emoji:'🐍', name:'대왕뱀', desc:'스네이크 15점 이상'},
+  {id:'typer', emoji:'⌨️', name:'타자왕', desc:'타이핑 60 WPM 이상'},
+  {id:'lv5',   emoji:'⭐', name:'레벨 5', desc:'레벨 5 달성'},
+];
+const TITLES=[[1,'초보'],[3,'루키'],[6,'플레이어'],[10,'고수'],[15,'마스터'],[22,'챔피언'],[30,'전설']];
+const Rewards = {
+  coins:0, xp:0, badges:new Set(), played:new Set(), streak:0,
+  level(){ return Math.floor(Math.sqrt(this.xp/50))+1; },
+  title(){ const l=this.level(); let t='초보'; for(const[m,n]of TITLES) if(l>=m)t=n; return t; },
+  xpFloor(l){ return 50*(l-1)*(l-1); },
+  progress(){ const l=this.level(), a=this.xpFloor(l), b=this.xpFloor(l+1); return {l, cur:this.xp-a, need:b-a, pct:Math.min(100,Math.round((this.xp-a)/(b-a)*100))}; },
+  load(){
+    const d=JSON.parse(localStorage.getItem('gz_rewards')||'{}');
+    this.coins=d.coins||0; this.xp=d.xp||0; this.badges=new Set(d.badges||[]); this.played=new Set(d.played||[]);
+    // 접속 연속일
+    const today=new Date().toDateString(), last=d.lastDay;
+    if(last!==today){ const y=new Date(Date.now()-864e5).toDateString(); this.streak=(last===y)?(d.streak||1)+1:1; } else this.streak=d.streak||1;
+    d.lastDay=today; this.save();
+  },
+  save(){ localStorage.setItem('gz_rewards', JSON.stringify({coins:this.coins,xp:this.xp,badges:[...this.badges],played:[...this.played],streak:this.streak,lastDay:new Date().toDateString()})); },
+  async sync(){ if(Server.online){ try{ await Server.sb.from('gz_players').upsert({ name:App.name, coins:this.coins, xp:this.xp, badges:[...this.badges] }, {onConflict:'name'}); }catch(e){} } },
+  // 게임 끝 → 보상 계산. 반환: {coins, xp, levelUp, newBadges[]}
+  grant(game, score, isRecord, rank){
+    const before=this.level();
+    const scoreBonus = Math.min(40, Math.round(score/ (game.higherBetter? (game.id==='flap'?1:3) : 1) ));
+    let coins = 10 + (game.higherBetter? Math.min(30,Math.max(0,Math.round(score/2))) : 15) + (isRecord?30:0) + (rank===0?25:0);
+    let xp = 15 + (isRecord?20:0) + (rank>=0&&rank<3?10:0);
+    this.coins+=coins; this.xp+=xp; this.played.add(game.id);
+    const got=[];
+    const give=id=>{ if(!this.badges.has(id)){ this.badges.add(id); got.push(BADGES.find(b=>b.id===id)); } };
+    give('first');
+    if(this.played.size>=10) give('all10');
+    if(rank===0) give('top1');
+    if(this.coins>=500) give('rich');
+    if(this.streak>=3) give('streak');
+    if(this.level()>=5) give('lv5');
+    if(game.id==='reaction'&&score<=250) give('bolt');
+    if(game.id==='click'&&score>=70) give('clicker');
+    if(game.id==='snake'&&score>=15) give('snakeK');
+    if(game.id==='typing'&&score>=60) give('typer');
+    this.save(); this.sync();
+    return {coins, xp, levelUp:this.level()>before, newBadges:got};
+  }
+};
+
+/* ---------- 유틸 ---------- */
+const $ = s => document.querySelector(s);
+const el = (tag, cls, html) => { const e=document.createElement(tag); if(cls)e.className=cls; if(html!=null)e.innerHTML=html; return e; };
+const rand = (a,b) => a + Math.random()*(b-a);
+const ri = (a,b) => Math.floor(rand(a,b+1));
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1800); }
+
+/* ---------- 앱 ---------- */
+const App = {
+  name: '',
+  async boot(){
+    await Server.init();
+    this.name = localStorage.getItem('gz_name') || '';
+    $('#startBtn').onclick = ()=>this.login();
+    $('#nameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') this.login(); });
+    $('#logoutBtn').onclick = ()=>{ localStorage.removeItem('gz_name'); location.reload(); };
+    if(this.name){ this.enter(); } else { $('#nameInput').focus(); }
+  },
+  login(){
+    const v = $('#nameInput').value.trim().replace(/\s+/g,' ');
+    if(v.length < 1){ toast('이름을 넣어 주세요'); return; }
+    this.name = v.slice(0,12); localStorage.setItem('gz_name', this.name); this.enter();
+  },
+  enter(){
+    $('#auth').classList.add('hidden');
+    $('#home').classList.remove('hidden');
+    $('#whoami').textContent = this.name;
+    Rewards.load();
+    $('#srvTag').innerHTML = Server.online
+      ? '서버 연결됨 · 순위가 친구들과 공유돼요 <span class="on">●</span>'
+      : '이 브라우저에만 저장 중 <span class="off">●</span> · 서버를 연결하면 친구들과 순위를 공유할 수 있어요';
+    $('#profileBtn').onclick = ()=>this.showProfile();
+    this.renderRewardStrip();
+    this.renderGrid();
+    Rewards.sync();
+  },
+  renderRewardStrip(){
+    const p=Rewards.progress();
+    $('#coins').textContent=Rewards.coins; $('#lvl').textContent=p.l;
+    $('#rewardStrip').innerHTML = `
+      <div class="rs-lv">
+        <div class="rs-head"><b>Lv.${p.l} ${Rewards.title()}</b><span>${Rewards.streak}일 연속 🔥 · 뱃지 ${Rewards.badges.size}/${BADGES.length}</span></div>
+        <div class="rs-bar"><i style="width:${p.pct}%"></i></div>
+        <div class="rs-sub">다음 레벨까지 ${p.need-p.cur} XP</div>
+      </div>`;
+  },
+  showProfile(){
+    const p=Rewards.progress();
+    const m=el('div','result'); m.id='result';
+    m.innerHTML=`<div class="result-card" style="max-width:440px">
+      <div class="label">${esc(this.name)} 님의 프로필</div>
+      <div class="score" style="font-size:30px">Lv.${p.l} · ${Rewards.title()}</div>
+      <div class="rs-bar" style="margin:10px 0 4px"><i style="width:${p.pct}%"></i></div>
+      <div class="label" style="font-size:12px">${p.cur}/${p.need} XP · 🪙 ${Rewards.coins} 코인 · 🔥 ${Rewards.streak}일 연속</div>
+      <div class="sec-title" style="margin:18px 2px 10px">뱃지 ${Rewards.badges.size}/${BADGES.length}</div>
+      <div class="badge-grid">${BADGES.map(b=>{const has=Rewards.badges.has(b.id);return `<div class="bdg ${has?'on':''}" title="${esc(b.desc)}"><div class="be">${b.emoji}</div><div class="bn">${b.name}</div></div>`;}).join('')}</div>
+      <div class="row-btns"><button class="btn" data-close>닫기</button></div>
+    </div>`;
+    document.body.appendChild(m);
+    m.querySelector('[data-close]').onclick=()=>m.remove();
+    m.onclick=e=>{ if(e.target===m)m.remove(); };
+  },
+  renderGrid(){
+    const grid = $('#gameGrid'); grid.innerHTML='';
+    GAMES.forEach(g=>{
+      const my = Server.myBest(g.id, g.higherBetter);
+      const c = el('button','card');
+      c.style.setProperty('--glow', g.glow);
+      c.innerHTML = `<div class="emoji">${g.emoji}</div><h3>${g.name}</h3><p>${g.desc}</p>
+        <div class="best">${my!=null ? '내 최고 '+g.fmt(my) : '아직 기록 없음'}</div>`;
+      c.onclick = ()=>Runner.open(g);
+      grid.appendChild(c);
+    });
+  }
+};
+
+/* =======================================================================
+   게임 러너: 화면 열기 / 게임오버 → 점수 저장 + 순위표
+   각 게임은 { id, name, emoji, desc, glow, higherBetter, fmt, start(ctx) }
+   ctx = { stage, over(score), setTop(html) }
+   ======================================================================= */
+const Runner = {
+  cur:null, screen:null, cleanup:null,
+  open(game){
+    this.cur = game;
+    const sc = el('div','screen');
+    sc.innerHTML = `
+      <div class="sc-top">
+        <button class="ghost" data-back>← 뒤로</button>
+        <h2>${game.emoji} ${game.name}</h2>
+      </div>
+      <div class="sc-body"><div class="stage" id="stage"></div></div>`;
+    document.body.appendChild(sc);
+    this.screen = sc;
+    sc.querySelector('[data-back]').onclick = ()=>this.close();
+    const ctx = {
+      stage: sc.querySelector('#stage'),
+      over: (score)=>this.gameOver(score),
+      done:false
+    };
+    this.cleanup = game.start(ctx) || null;
+  },
+  close(){
+    if(typeof this.cleanup==='function'){ try{this.cleanup();}catch(e){} this.cleanup=null; }
+    if(this.screen){ this.screen.remove(); this.screen=null; }
+    const r=$('#result'); if(r) r.remove();
+    App.renderGrid();
+  },
+  async gameOver(score){
+    const g = this.cur;
+    score = Math.round(score);
+    const isNew = Server.saveMyBest(g.id, score, g.higherBetter);
+    await Server.submit(g.id, App.name, score);
+    const rows = await Server.top(g.id, g.higherBetter, 10);
+    const myRank = rows.findIndex(x=>x.name===App.name);
+    const rw = Rewards.grant(g, score, isNew, myRank);
+    const r = el('div','result'); r.id='result';
+    r.innerHTML = `
+      <div class="result-card">
+        <div class="label">${g.emoji} ${g.name}</div>
+        <div class="score">${g.fmt(score)}</div>
+        <div class="label">${isNew ? '🎉 내 최고 기록 경신!' : '이번 기록'}</div>
+        <div class="reward-pop">🪙 +${rw.coins} 코인 · ✨ +${rw.xp} XP${rw.levelUp?' · <b style="color:var(--yellow)">레벨 업! Lv.'+Rewards.level()+'</b>':''}</div>
+        ${rw.newBadges.length?`<div class="badge-win">${rw.newBadges.map(b=>`<span>${b.emoji} ${b.name} 획득!</span>`).join('')}</div>`:''}
+        <div class="lb">
+          ${rows.length ? rows.map((x,i)=>`
+            <div class="lb-row ${x.name===App.name&&i===myRank?'me':''}">
+              <span class="lb-rank">${i<3?['🥇','🥈','🥉'][i]:i+1}</span>
+              <span class="lb-name">${esc(x.name)}</span>
+              <span class="lb-score">${g.fmt(x.score)}</span>
+            </div>`).join('') : '<div class="lb-empty">아직 순위가 없어요. 1등이 되어 보세요!</div>'}
+        </div>
+        <div class="row-btns">
+          <button class="btn" data-retry>다시하기</button>
+          <button class="btn" style="background:var(--panel2);color:var(--ink)" data-home>다른 게임</button>
+        </div>
+      </div>`;
+    document.body.appendChild(r);
+    r.querySelector('[data-retry]').onclick = ()=>{ r.remove(); this.restart(); };
+    r.querySelector('[data-home]').onclick = ()=>this.close();
+    App.renderRewardStrip();
+  },
+  restart(){
+    if(typeof this.cleanup==='function'){ try{this.cleanup();}catch(e){} }
+    const stage = this.screen.querySelector('#stage'); stage.innerHTML='';
+    const ctx = { stage, over:(s)=>this.gameOver(s) };
+    this.cleanup = this.cur.start(ctx) || null;
+  }
+};
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* =======================================================================
+   10종 게임
+   ======================================================================= */
+const GAMES = [];
+
+/* 1. 반응속도 */
+GAMES.push({
+  id:'reaction', name:'반응속도', emoji:'⚡', glow:'rgba(255,210,62,.5)',
+  desc:'초록으로 바뀌면 바로 탭! (ms, 낮을수록 좋아요)', higherBetter:false,
+  fmt:v=>v+'ms',
+  start(ctx){
+    let state='wait', t0=0, timer=0, tries=[], round=0;
+    const area = el('div','tap-area');
+    const info = el('div','hint','5번 평균으로 기록돼요');
+    ctx.stage.append(info, area);
+    const setRed=()=>{ state='ready'; area.style.background='#c92a4a'; area.textContent='초록이 될 때까지 기다려요…';
+      timer=setTimeout(()=>{ state='go'; t0=performance.now(); area.style.background='#1aa05a'; area.textContent='지금 탭!'; }, ri(900,2600)); };
+    const click=()=>{
+      if(state==='ready'){ clearTimeout(timer); area.style.background='#3a2140'; area.textContent='너무 빨라요! 다시 기다려요'; state='wait'; setTimeout(setRed,700); return; }
+      if(state==='go'){ const ms=Math.round(performance.now()-t0); tries.push(ms); round++;
+        area.style.background='#1b2340'; area.textContent=ms+'ms  ('+round+'/5)';
+        if(round>=5){ state='done'; const avg=Math.round(tries.reduce((a,b)=>a+b,0)/tries.length); setTimeout(()=>ctx.over(avg),500); }
+        else { state='wait'; setTimeout(setRed,650); } return; }
+      if(state==='wait' || state==='start'){ setRed(); }
+    };
+    area.style.background='#1b2340'; area.textContent='탭해서 시작'; state='start';
+    area.onclick=click;
+    return ()=>clearTimeout(timer);
+  }
+});
+
+/* 2. 클릭 러시 */
+GAMES.push({
+  id:'click', name:'클릭 러시', emoji:'💥', glow:'rgba(255,61,139,.5)',
+  desc:'10초 동안 최대한 많이 탭하기!', higherBetter:true, fmt:v=>v+'회',
+  start(ctx){
+    let n=0, left=10, running=false, iv=0;
+    const stat=el('div','statbar',`<div>남은 시간 <b id="t">10.0</b>s</div><div>클릭 <b id="n">0</b></div>`);
+    const btn=el('div','tap-area','탭 시작!'); btn.style.background='linear-gradient(135deg,#ff3d8b,#9b6bff)'; btn.style.color='#fff';
+    ctx.stage.append(stat,btn);
+    const tick=()=>{ left-=0.1; if(left<=0){ left=0; stop(); } stat.querySelector('#t').textContent=left.toFixed(1); };
+    const stop=()=>{ clearInterval(iv); btn.textContent='끝!'; setTimeout(()=>ctx.over(n),400); };
+    btn.onclick=()=>{ if(!running){ running=true; btn.textContent='계속 탭!'; iv=setInterval(tick,100); }
+      if(left<=0) return; n++; stat.querySelector('#n').textContent=n; btn.style.transform='scale(.97)'; setTimeout(()=>btn.style.transform='',40); };
+    return ()=>clearInterval(iv);
+  }
+});
+
+/* 3. 두더지 잡기 */
+GAMES.push({
+  id:'mole', name:'두더지 잡기', emoji:'🔨', glow:'rgba(61,220,132,.5)',
+  desc:'30초 동안 튀어나온 두더지를 탭!', higherBetter:true, fmt:v=>v+'점',
+  start(ctx){
+    let score=0, left=30, iv=0, hop=0;
+    const stat=el('div','statbar',`<div>시간 <b id="t">30</b>s</div><div>점수 <b id="s">0</b></div>`);
+    const grid=el('div'); grid.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:320px;margin:0 auto';
+    const cells=[];
+    for(let i=0;i<9;i++){ const c=el('button'); c.style.cssText='aspect-ratio:1;border:1px solid var(--line);border-radius:14px;background:#0f1630;font-size:34px;display:grid;place-items:center'; c.textContent='';
+      c.onclick=()=>{ if(c.dataset.on==='1'){ score++; stat.querySelector('#s').textContent=score; c.dataset.on='0'; c.textContent='💢'; setTimeout(()=>{if(c.textContent==='💢')c.textContent='';},150);} };
+      cells.push(c); grid.appendChild(c); }
+    ctx.stage.append(stat,grid);
+    const pop=()=>{ cells.forEach(c=>{ if(c.dataset.on==='1'){ c.dataset.on='0'; c.textContent=''; } });
+      const k=ri(0,8), count = Math.random()<.35?2:1;
+      const idx=new Set([k]); while(idx.size<count) idx.add(ri(0,8));
+      idx.forEach(i=>{ cells[i].dataset.on='1'; cells[i].textContent='🐹'; }); };
+    const tick=()=>{ left--; stat.querySelector('#t').textContent=left; if(left<=0){ clearInterval(iv); clearInterval(hop); setTimeout(()=>ctx.over(score),300);} };
+    hop=setInterval(pop, 750); iv=setInterval(tick,1000); pop();
+    return ()=>{ clearInterval(iv); clearInterval(hop); };
+  }
+});
+
+/* 4. 기억력 카드 */
+GAMES.push({
+  id:'memory', name:'기억력 카드', emoji:'🃏', glow:'rgba(155,107,255,.5)',
+  desc:'8쌍 카드 맞추기 (초, 낮을수록 좋아요)', higherBetter:false, fmt:v=>v+'초',
+  start(ctx){
+    const icons=['🍎','🐶','⚽','🌈','🚀','🎸','🍕','👑'];
+    let deck=[...icons,...icons].map(v=>({v})).sort(()=>Math.random()-.5);
+    let open=[], matched=0, t0=0, started=false, iv=0, lock=false;
+    const stat=el('div','statbar',`<div>시간 <b id="t">0.0</b>s</div><div>맞춤 <b id="m">0</b>/8</div>`);
+    const grid=el('div'); grid.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:340px;margin:0 auto';
+    deck.forEach((card,i)=>{ const b=el('button'); b.style.cssText='aspect-ratio:1;border:1px solid var(--line);border-radius:12px;background:#17204a;font-size:28px;display:grid;place-items:center'; b.textContent='❔';
+      b.onclick=()=>{ if(lock||card.open||card.done) return; if(!started){started=true;t0=performance.now();iv=setInterval(()=>stat.querySelector('#t').textContent=((performance.now()-t0)/1000).toFixed(1),100);}
+        card.open=true; b.textContent=card.v; b.style.background='#223a6b'; open.push({card,b});
+        if(open.length===2){ lock=true; const [a,c]=open;
+          if(a.card.v===c.card.v){ a.card.done=c.card.done=true; matched++; stat.querySelector('#m').textContent=matched; open=[]; lock=false;
+            a.b.style.background='#1aa05a'; c.b.style.background='#1aa05a';
+            if(matched===8){ clearInterval(iv); setTimeout(()=>ctx.over((performance.now()-t0)/1000),400);} }
+          else setTimeout(()=>{ a.card.open=c.card.open=false; a.b.textContent=c.b.textContent='❔'; a.b.style.background=c.b.style.background='#17204a'; open=[]; lock=false; },700); } };
+      card.b=b; grid.appendChild(b); });
+    ctx.stage.append(stat,grid, el('div','hint','첫 카드를 뒤집으면 시간이 시작돼요'));
+    return ()=>clearInterval(iv);
+  }
+});
+
+/* 5. 숫자 순서 (슐테 테이블) */
+GAMES.push({
+  id:'schulte', name:'숫자 순서', emoji:'🔢', glow:'rgba(34,224,214,.5)',
+  desc:'1부터 25까지 순서대로 탭 (초)', higherBetter:false, fmt:v=>v+'초',
+  start(ctx){
+    let next=1, t0=0, started=false, iv=0;
+    const nums=[...Array(25)].map((_,i)=>i+1).sort(()=>Math.random()-.5);
+    const stat=el('div','statbar',`<div>시간 <b id="t">0.0</b>s</div><div>다음 <b id="n">1</b></div>`);
+    const grid=el('div'); grid.style.cssText='display:grid;grid-template-columns:repeat(5,1fr);gap:6px;max-width:340px;margin:0 auto';
+    const cells=nums.map(v=>{ const b=el('button',null,String(v)); b.style.cssText='aspect-ratio:1;border:1px solid var(--line);border-radius:10px;background:#131b3a;font-size:17px;font-weight:700';
+      b.onclick=()=>{ if(!started){started=true;t0=performance.now();iv=setInterval(()=>stat.querySelector('#t').textContent=((performance.now()-t0)/1000).toFixed(1),100);}
+        if(v===next){ b.style.background='#1aa05a'; b.disabled=true; next++; stat.querySelector('#n').textContent=Math.min(next,25);
+          if(next>25){ clearInterval(iv); setTimeout(()=>ctx.over((performance.now()-t0)/1000),300);} }
+        else { b.style.background='#c92a4a'; setTimeout(()=>b.style.background='#131b3a',200); } };
+      grid.appendChild(b); return b; });
+    ctx.stage.append(stat,grid, el('div','hint','1을 누르면 시간이 시작돼요'));
+    return ()=>clearInterval(iv);
+  }
+});
+
+/* 6. 스네이크 */
+GAMES.push({
+  id:'snake', name:'스네이크', emoji:'🐍', glow:'rgba(61,220,132,.5)',
+  desc:'사과를 먹고 길게! (스와이프/방향키)', higherBetter:true, fmt:v=>v+'점',
+  start(ctx){
+    const N=15, S=20, W=N*S;
+    const cv=el('canvas'); cv.width=W; cv.height=W; const g=cv.getContext('2d');
+    const stat=el('div','statbar',`<div>점수 <b id="s">0</b></div>`);
+    ctx.stage.append(stat,cv, el('div','hint','방향키 또는 화면을 스와이프하세요'));
+    let snake=[{x:7,y:7}], dir={x:1,y:0}, nd={x:1,y:0}, food={x:11,y:7}, score=0, iv=0, dead=false;
+    const place=()=>{ let p; do{ p={x:ri(0,N-1),y:ri(0,N-1)}; }while(snake.some(s=>s.x===p.x&&s.y===p.y)); food=p; };
+    const draw=()=>{ g.fillStyle='#070b16'; g.fillRect(0,0,W,W);
+      g.fillStyle='#ff4d5e'; g.fillRect(food.x*S+3,food.y*S+3,S-6,S-6);
+      snake.forEach((s,i)=>{ g.fillStyle = i===0?'#3ddc84':'#2a9d63'; g.fillRect(s.x*S+1,s.y*S+1,S-2,S-2); }); };
+    const step=()=>{ dir=nd; const h={x:snake[0].x+dir.x, y:snake[0].y+dir.y};
+      if(h.x<0||h.y<0||h.x>=N||h.y>=N||snake.some(s=>s.x===h.x&&s.y===h.y)){ dead=true; clearInterval(iv); setTimeout(()=>ctx.over(score),300); return; }
+      snake.unshift(h);
+      if(h.x===food.x&&h.y===food.y){ score++; stat.querySelector('#s').textContent=score; place(); } else snake.pop();
+      draw(); };
+    draw();
+    const set=(x,y)=>{ if(x===-dir.x&&y===-dir.y) return; nd={x,y}; };
+    const key=e=>{ const k=e.key; if(k==='ArrowUp')set(0,-1); else if(k==='ArrowDown')set(0,1); else if(k==='ArrowLeft')set(-1,0); else if(k==='ArrowRight')set(1,0); else return; e.preventDefault(); };
+    window.addEventListener('keydown',key);
+    let tx=0,ty=0;
+    cv.addEventListener('touchstart',e=>{ const t=e.touches[0]; tx=t.clientX; ty=t.clientY; },{passive:true});
+    cv.addEventListener('touchend',e=>{ const t=e.changedTouches[0], dx=t.clientX-tx, dy=t.clientY-ty;
+      if(Math.abs(dx)>Math.abs(dy)) set(dx>0?1:-1,0); else set(0,dy>0?1:-1); });
+    iv=setInterval(step,140);
+    return ()=>{ clearInterval(iv); window.removeEventListener('keydown',key); };
+  }
+});
+
+/* 7. 2048 */
+GAMES.push({
+  id:'g2048', name:'2048', emoji:'🧩', glow:'rgba(255,210,62,.5)',
+  desc:'같은 숫자를 합쳐 높은 점수! (스와이프)', higherBetter:true, fmt:v=>v+'점',
+  start(ctx){
+    const N=4; let grid=[], score=0, over=false;
+    const stat=el('div','statbar',`<div>점수 <b id="s">0</b></div>`);
+    const board=el('div'); board.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;background:#0f1630;padding:8px;border-radius:14px;max-width:300px;margin:0 auto;touch-action:none';
+    ctx.stage.append(stat,board, el('div','hint','방향키 또는 스와이프'));
+    const COL={2:'#2b3a66',4:'#315a99',8:'#2f8f8a',16:'#2faa6a',32:'#c7a52b',64:'#d98324',128:'#d95a4a',256:'#c23d7b',512:'#9b4ddb',1024:'#6b5bff',2048:'#ff3d8b'};
+    const empty=()=>{ const c=[]; for(let y=0;y<N;y++)for(let x=0;x<N;x++) if(!grid[y][x])c.push([x,y]); return c; };
+    const add=()=>{ const c=empty(); if(!c.length)return; const [x,y]=c[ri(0,c.length-1)]; grid[y][x]=Math.random()<.9?2:4; };
+    const render=()=>{ board.innerHTML=''; for(let y=0;y<N;y++)for(let x=0;x<N;x++){ const v=grid[y][x]; const t=el('div',null,v||'');
+      t.style.cssText=`aspect-ratio:1;border-radius:9px;display:grid;place-items:center;font-weight:800;font-size:${v>=128?18:22}px;background:${v?COL[v]||'#ff3d8b':'#182246'};color:${v?'#fff':'transparent'}`; board.appendChild(t); } stat.querySelector('#s').textContent=score; };
+    const slide=row=>{ let a=row.filter(v=>v); for(let i=0;i<a.length-1;i++){ if(a[i]===a[i+1]){ a[i]*=2; score+=a[i]; a[i+1]=0; } } a=a.filter(v=>v); while(a.length<N)a.push(0); return a; };
+    const rot=m=>m[0].map((_,i)=>m.map(r=>r[i]));
+    const move=dir=>{ let g2=grid.map(r=>[...r]), moved=false;
+      const doLeft=m=>m.map(r=>slide(r));
+      if(dir==='l') g2=doLeft(g2);
+      else if(dir==='r') g2=doLeft(g2.map(r=>[...r].reverse())).map(r=>r.reverse());
+      else if(dir==='u'){ g2=rot(g2); g2=doLeft(g2); g2=rot(g2); } 
+      else if(dir==='d'){ g2=rot(g2); g2=doLeft(g2.map(r=>[...r].reverse())).map(r=>r.reverse()); g2=rot(g2); }
+      moved = JSON.stringify(g2)!==JSON.stringify(grid);
+      if(moved){ grid=g2; add(); render(); if(isOver()){ over=true; setTimeout(()=>ctx.over(score),300);} } };
+    const isOver=()=>{ if(empty().length) return false; for(let y=0;y<N;y++)for(let x=0;x<N;x++){ if(x<N-1&&grid[y][x]===grid[y][x+1])return false; if(y<N-1&&grid[y][x]===grid[y+1][x])return false; } return true; };
+    grid=[...Array(N)].map(()=>Array(N).fill(0)); add(); add(); render();
+    const key=e=>{ const m={ArrowLeft:'l',ArrowRight:'r',ArrowUp:'u',ArrowDown:'d'}[e.key]; if(!m||over)return; e.preventDefault(); move(m); };
+    window.addEventListener('keydown',key);
+    let tx=0,ty=0;
+    board.addEventListener('touchstart',e=>{const t=e.touches[0];tx=t.clientX;ty=t.clientY;},{passive:true});
+    board.addEventListener('touchend',e=>{ if(over)return; const t=e.changedTouches[0],dx=t.clientX-tx,dy=t.clientY-ty; if(Math.max(Math.abs(dx),Math.abs(dy))<20)return; move(Math.abs(dx)>Math.abs(dy)?(dx>0?'r':'l'):(dy>0?'d':'u')); });
+    return ()=>window.removeEventListener('keydown',key);
+  }
+});
+
+/* 8. 색깔 찾기 */
+GAMES.push({
+  id:'color', name:'색깔 찾기', emoji:'🎨', glow:'rgba(255,61,139,.5)',
+  desc:'60초 동안 다른 색 칸을 최대한 많이!', higherBetter:true, fmt:v=>v+'단계',
+  start(ctx){
+    let level=1, left=60, iv=0;
+    const stat=el('div','statbar',`<div>시간 <b id="t">60</b>s</div><div>단계 <b id="l">1</b></div>`);
+    const grid=el('div'); grid.style.cssText='display:grid;gap:6px;max-width:320px;margin:0 auto';
+    ctx.stage.append(stat,grid, el('div','hint','색이 미묘하게 다른 한 칸을 찾으세요'));
+    const build=()=>{ const size=Math.min(2+Math.floor(level/2),8); grid.style.gridTemplateColumns=`repeat(${size},1fr)`;
+      const h=ri(0,360), s=60, l=55; const diff=Math.max(3, 30 - level*1.3);
+      const base=`hsl(${h},${s}%,${l}%)`, odd=`hsl(${h},${s}%,${l+ (Math.random()<.5?diff:-diff)}%)`;
+      const total=size*size, k=ri(0,total-1); grid.innerHTML='';
+      for(let i=0;i<total;i++){ const c=el('button'); c.style.cssText=`aspect-ratio:1;border:0;border-radius:8px;background:${i===k?odd:base}`;
+        c.onclick=()=>{ if(i===k){ level++; stat.querySelector('#l').textContent=level; build(); } else { left=Math.max(0,left-3); c.style.background='#c92a4a'; setTimeout(()=>c.style.background=base,200); } };
+        grid.appendChild(c); } };
+    build();
+    iv=setInterval(()=>{ left--; stat.querySelector('#t').textContent=left; if(left<=0){ clearInterval(iv); setTimeout(()=>ctx.over(level-1),300);} },1000);
+    return ()=>clearInterval(iv);
+  }
+});
+
+/* 9. 타이핑 속도 */
+GAMES.push({
+  id:'typing', name:'타이핑 속도', emoji:'⌨️', glow:'rgba(34,224,214,.5)',
+  desc:'문장을 빠르고 정확하게! (WPM)', higherBetter:true, fmt:v=>v+' WPM',
+  start(ctx){
+    const sents=['빠른 갈색 여우가 게으른 개를 뛰어넘는다','오늘도 좋은 하루 보내세요 친구들아','연습이 완벽을 만든다고 하잖아요','게임은 즐거워 하지만 지는 건 싫어','코딩은 재미있고 가끔은 머리가 아파요','치킨과 피자 중에 뭐가 더 좋아요'];
+    const target=sents[ri(0,sents.length-1)];
+    let t0=0, started=false;
+    const show=el('div'); show.style.cssText='font-size:19px;line-height:1.7;background:#131b3a;padding:16px;border-radius:12px;max-width:440px;margin:0 auto';
+    const input=el('textarea'); input.rows=3; input.style.cssText='width:100%;max-width:440px;margin:12px auto 0;background:#0b1026;border:1px solid var(--line);border-radius:12px;color:var(--ink);padding:12px;font-size:17px;resize:none;outline:none';
+    input.placeholder='여기에 똑같이 입력하세요';
+    const stat=el('div','statbar',`<div>정확도 <b id="a">100</b>%</div><div>시간 <b id="t">0.0</b>s</div>`);
+    ctx.stage.append(stat,show,input);
+    const render=()=>{ const v=input.value; let html=''; for(let i=0;i<target.length;i++){ const ch=esc(target[i]); if(i<v.length) html+=`<span style="color:${v[i]===target[i]?'#3ddc84':'#ff4d5e'};text-decoration:${v[i]===target[i]?'none':'underline'}">${ch}</span>`; else if(i===v.length) html+=`<span style="background:#22e0d6;color:#06111a">${ch}</span>`; else html+=`<span style="color:#8a96bd">${ch}</span>`; } show.innerHTML=html; };
+    render();
+    let iv=0;
+    input.addEventListener('input',()=>{ if(!started){ started=true; t0=performance.now(); iv=setInterval(()=>stat.querySelector('#t').textContent=((performance.now()-t0)/1000).toFixed(1),100);}
+      const v=input.value; let ok=0; for(let i=0;i<v.length;i++) if(v[i]===target[i])ok++;
+      stat.querySelector('#a').textContent=v.length?Math.round(ok/v.length*100):100; render();
+      if(v===target){ clearInterval(iv); const sec=(performance.now()-t0)/1000; const words=target.length/5; const wpm=Math.round(words/(sec/60)); setTimeout(()=>ctx.over(wpm),300); } });
+    setTimeout(()=>input.focus(),100);
+    return ()=>clearInterval(iv);
+  }
+});
+
+/* 10. 점프 (플래피) */
+GAMES.push({
+  id:'flap', name:'점프 점프', emoji:'🐤', glow:'rgba(255,210,62,.5)',
+  desc:'탭해서 날아 장애물 통과! (점)', higherBetter:true, fmt:v=>v+'점',
+  start(ctx){
+    const W=320,H=400;
+    const cv=el('canvas'); cv.width=W; cv.height=H; const g=cv.getContext('2d');
+    const stat=el('div','statbar',`<div>점수 <b id="s">0</b></div>`);
+    ctx.stage.append(stat,cv, el('div','hint','화면을 탭하거나 스페이스바'));
+    let y=H/2, vy=0, pipes=[], score=0, raf=0, started=false, dead=false, frame=0;
+    const G=0.45, JUMP=-7.2, GAP=120, PW=48, SPD=2.2;
+    const reset=()=>{ pipes=[{x:W+40,gap:ri(90,H-130)}]; };
+    reset();
+    const flap=()=>{ if(dead)return; started=true; vy=JUMP; };
+    const loop=()=>{ raf=requestAnimationFrame(loop); g.fillStyle='#070b16'; g.fillRect(0,0,W,H);
+      if(started){ vy+=G; y+=vy; }
+      frame++;
+      if(started && frame%90===0) pipes.push({x:W+40,gap:ri(90,H-130)});
+      pipes.forEach(p=>{ if(started)p.x-=SPD; g.fillStyle='#3ddc84'; g.fillRect(p.x,0,PW,p.gap-GAP/2); g.fillRect(p.x,p.gap+GAP/2,PW,H-(p.gap+GAP/2));
+        if(!p.passed && p.x+PW<60){ p.passed=true; score++; stat.querySelector('#s').textContent=score; } });
+      pipes=pipes.filter(p=>p.x>-PW);
+      // 새
+      g.font='26px serif'; g.textAlign='center'; g.fillText('🐤',60,y);
+      // 충돌
+      if(y>H-12||y<0){ end(); }
+      pipes.forEach(p=>{ if(60+14>p.x && 60-14<p.x+PW && (y-14<p.gap-GAP/2 || y+14>p.gap+GAP/2)) end(); });
+    };
+    const end=()=>{ if(dead)return; dead=true; cancelAnimationFrame(raf); setTimeout(()=>ctx.over(score),300); };
+    const key=e=>{ if(e.code==='Space'){ e.preventDefault(); flap(); } };
+    window.addEventListener('keydown',key); cv.addEventListener('pointerdown',flap);
+    loop();
+    return ()=>{ cancelAnimationFrame(raf); window.removeEventListener('keydown',key); };
+  }
+});
+
+App.boot();
+</script>
+</body>
+</html>
