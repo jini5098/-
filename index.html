@@ -400,6 +400,13 @@ const Net = {
     if(this.online){ const q=await this.sb.from('cls_students').select('nick,name,seen_at').order('seen_at',{ascending:false}).limit(200); return (q.data||[]).map(r=>({nick:r.nick,name:r.name,seen:Date.parse(r.seen_at)})); }
     return Object.values(this._lget('cls_students', {})).sort((a,b)=>b.seen-a.seen);
   },
+  // ---- 관리자: 계정(학생) 삭제 — 게시글·점수까지 함께 지움 ----
+  async adminDelStudent(nick){
+    if(this.online){ try{ await this.sb.from('cls_students').delete().eq('nick',nick); await this.sb.from('cls_board').delete().eq('by_nick',nick); await this.sb.from('cls_scores').delete().eq('nick',nick); }catch(e){} return; }
+    const S=this._lget('cls_students',{}); if(S[nick])delete S[nick]; this._lset('cls_students',S);
+    this._lset('cls_board', this._lget('cls_board',[]).filter(x=>x.nick!==nick));
+    this._lset('cls_scores', this._lget('cls_scores',[]).filter(x=>x.nick!==nick));
+  },
   // ---- 혼자 연습 랭킹 ----
   async scoreSubmit(game,nick,name,score){
     if(this.online){ try{ await this.sb.from('cls_scores').insert({game,nick,name,score}); }catch(e){} return; }
@@ -422,6 +429,8 @@ const Net = {
 
 /* ---------- 앱(라우터) ---------- */
 const App = {
+  ADMIN:'정윤진',
+  get isAdmin(){ return this.nick===this.ADMIN; },
   nick:'', name:'',
   async boot(){
     await Net.init();
@@ -464,8 +473,10 @@ const App = {
   },
   async renderRoster(){
     const list=await Net.studentList();
-    $('#rosterCount').textContent=list.length+'명';
-    $('#rosterList').innerHTML = list.length? list.map(s=>`<span class="student ${s.nick===this.nick?'me':''}">${esc(s.nick)}<span class="nm">${esc(s.name||'')}</span></span>`).join('') : '<span class="hint">아직 아무도 없어요. 친구를 초대해요!</span>';
+    const adm=this.isAdmin;
+    $('#rosterCount').textContent=list.length+'명'+(adm?' · 🛡️관리자':'');
+    $('#rosterList').innerHTML = list.length? list.map(s=>`<span class="student ${s.nick===this.nick?'me':''}" data-nick="${esc(s.nick)}">${esc(s.nick)}<span class="nm">${esc(s.name||'')}</span>${adm&&s.nick!==this.nick?'<button class="adm-del" style="margin-left:5px;border:0;background:#ff5a5f;color:#fff;border-radius:6px;width:18px;height:18px;font-size:11px;line-height:1;cursor:pointer" title="계정 삭제">✕</button>':''}</span>`).join('') : '<span class="hint">아직 아무도 없어요. 친구를 초대해요!</span>';
+    if(adm) $('#rosterList').querySelectorAll('.adm-del').forEach(btn=>{ btn.onclick=async(e)=>{ e.stopPropagation(); const nk=btn.parentElement.getAttribute('data-nick'); if(confirm('"'+nk+'" 계정과 그 학생의 게시글·점수를 모두 지울까요? (관리자)')){ await Net.adminDelStudent(nk); this.renderRoster(); } }; });
   }
 };
 
@@ -531,7 +542,7 @@ const Board = {
       if(d.moved){ await Net.boardUpdate(d.it.id,d.it.data); this.refresh(); } };
     window.addEventListener('pointermove',move); window.addEventListener('pointerup',up); window.addEventListener('pointercancel',up);
   },
-  async delItem(it){ if(it.nick && it.nick!==App.nick){ toast('내가 붙인 것만 지울 수 있어요'); return; }
+  async delItem(it){ if(it.nick && it.nick!==App.nick && !App.isAdmin){ toast('내가 붙인 것만 지울 수 있어요'); return; }
     if(!confirm('지울까요?'))return; await Net.boardDel(it.id); this.refresh(); },
 
   /* ---- 투표 ---- */
@@ -547,7 +558,7 @@ const Board = {
       const c=el('div','card poll');
       c.innerHTML=`<div class="q">${esc(p.data.q)}</div>`+
         p.data.options.map((o,i)=>`<div class="opt ${myVote&&myVote.data.choice===i?'mine':''}"><div class="fill" style="width:${total?counts[i]/total*100:0}%"></div><button class="pick" data-i="${i}">${esc(o)}</button><span class="cnt">${counts[i]}</span></div>`).join('')+
-        `<div class="meta"><span>${total}명 참여 · ${esc(p.nick||'')} 만듦</span>${p.nick===App.nick?'<button data-del style="color:var(--red)">삭제</button>':''}</div>`;
+        `<div class="meta"><span>${total}명 참여 · ${esc(p.nick||'')} 만듦</span>${(p.nick===App.nick||App.isAdmin)?'<button data-del style="color:var(--red)">삭제</button>':''}</div>`;
       c.querySelectorAll('.pick').forEach(b=>b.onclick=()=>this.vote(p,+b.dataset.i,myVote));
       const del=c.querySelector('[data-del]'); if(del)del.onclick=async()=>{ if(confirm('투표를 지울까요?')){ await Net.boardDel(p.id); for(const v of votes.filter(v=>v.data.poll===p.id)) await Net.boardDel(v.id); this.refresh(); } };
       box.appendChild(c);
@@ -573,7 +584,7 @@ const Board = {
       .sort((a,b)=>Math.abs(a.diff)-Math.abs(b.diff)).forEach(({it,diff,d})=>{
       const label = diff===0?'D-DAY':(diff>0?'D-'+diff:'D+'+(-diff));
       const c=el('div','card dday');
-      c.innerHTML=`<div class="num ${diff<0?'past':''}">${label}</div><div class="info"><b>${esc(it.data.title)}</b><div class="date">${it.data.date} · ${esc(it.nick||'')}</div></div>${it.nick===App.nick?'<button class="ghost-x" data-del>✕</button>':''}`;
+      c.innerHTML=`<div class="num ${diff<0?'past':''}">${label}</div><div class="info"><b>${esc(it.data.title)}</b><div class="date">${it.data.date} · ${esc(it.nick||'')}</div></div>${(it.nick===App.nick||App.isAdmin)?'<button class="ghost-x" data-del>✕</button>':''}`;
       const del=c.querySelector('[data-del]'); if(del)del.onclick=async()=>{ if(confirm('지울까요?')){ await Net.boardDel(it.id); this.refresh(); } };
       box.appendChild(c);
     });
@@ -870,7 +881,7 @@ const Rewards = {
   // 게임 끝 → 보상 계산. 반환: {coins, xp, levelUp, newBadges[]}
   grant(game, score, isRecord, rank){
     const before=this.level();
-    const scoreBonus = Math.min(40, Math.round(score/ (game.higherBetter? (game.id==='flap'?1:3) : 1) ));
+    const scoreBonus = Math.min(40, Math.round(score/ (game.higherBetter? (game.id==='flap2'?1:3) : 1) ));
     let coins = 10 + (game.higherBetter? Math.min(30,Math.max(0,Math.round(score/2))) : 15) + (isRecord?30:0) + (rank===0?25:0);
     let xp = 15 + (isRecord?20:0) + (rank>=0&&rank<3?10:0);
     this.coins+=coins; this.xp+=xp; this.played.add(game.id);
@@ -1120,19 +1131,19 @@ GAMES.push({
     return ()=>clearInterval(iv);
   }
 });
-/* 10. 점프 점프 (퀄리티 ↑, 난이도 유지) */
+/* 10. 점프 점프 (난이도 ↑ · 랭킹 새 시즌 리셋) */
 GAMES.push({
-  id:'flap', name:'점프 점프', emoji:'🐤', glow:'rgba(255,210,62,.5)',
-  desc:'탭해서 통과! 어렵지만 중독돼요', higherBetter:true, fmt:v=>v+'점',
+  id:'flap2', name:'점프 점프', emoji:'🐤', glow:'rgba(255,210,62,.5)',
+  desc:'더 어려워졌어요! 탭해서 통과 🔥', higherBetter:true, fmt:v=>v+'점',
   start(ctx){
     const W=320,H=440;
     const cv=document.createElement('canvas'); cv.width=W; cv.height=H; cv.className='game';
     const g=cv.getContext('2d');
-    const stat=el('div','statbar',`<div>점수 <b id="s">0</b></div><div class="muted" style="font-size:12px">최고 <b id="bst">${(Solo.best('flap')??0)}</b></div>`);
+    const stat=el('div','statbar',`<div>점수 <b id="s">0</b></div><div class="muted" style="font-size:12px">최고 <b id="bst">${(Solo.best('flap2')??0)}</b></div>`);
     ctx.stage.append(stat,cv, el('div','hint','화면을 탭하거나 스페이스바 · 콕콕 짧게 눌러요'));
-    // 난이도 동일: G=0.45, JUMP=-7.2, GAP=120, SPD=2.2
-    const G=0.45, JUMP=-7.2, GAP=120, PW=52, SPD=2.2, BY=H-46;
-    let y=H/2, vy=0, rot=0, pipes=[], score=0, raf=0, started=false, dead=false, frame=0, best=Solo.best('flap')??0;
+    // 난이도 ↑: 간격 좁고(GAP) 더 빠르게(SPD), 파이프 더 자주
+    const G=0.48, JUMP=-7.4, GAP=96, PW=52, SPD=2.9, BY=H-46;
+    let y=H/2, vy=0, rot=0, pipes=[], score=0, raf=0, started=false, dead=false, frame=0, best=Solo.best('flap2')??0;
     const clouds=[...Array(4)].map(()=>({x:Math.random()*W,y:rand(20,160),s:rand(.6,1.2)}));
     const parts=[];
     const reset=()=>{ pipes=[{x:W+40,gap:ri(90,BY-60)}]; };
@@ -1145,7 +1156,7 @@ GAMES.push({
       // 구름
       g.fillStyle='rgba(255,255,255,.85)'; clouds.forEach(c=>{ c.x-=0.3*c.s; if(c.x<-50)c.x=W+40; const s=c.s*18; g.beginPath(); g.arc(c.x,c.y,s,0,7); g.arc(c.x+s,c.y+4,s*.8,0,7); g.arc(c.x-s,c.y+4,s*.8,0,7); g.fill(); });
       if(started&&!dead){ vy+=G; y+=vy; rot=Math.max(-.5,Math.min(1.2,vy*0.08)); } frame++;
-      if(started&&!dead&&frame%92===0) pipes.push({x:W+40,gap:ri(90,BY-60)});
+      if(started&&!dead&&frame%74===0) pipes.push({x:W+40,gap:ri(90,BY-60)});
       pipes.forEach(p=>{ if(started&&!dead)p.x-=SPD;
         const grad=g.createLinearGradient(p.x,0,p.x+PW,0); grad.addColorStop(0,'#5ed17a'); grad.addColorStop(1,'#39b85e'); g.fillStyle=grad;
         rr(p.x,0,PW,p.gap-GAP/2,8); g.fill(); rr(p.x-4,p.gap-GAP/2-18,PW+8,18,6); g.fill();
